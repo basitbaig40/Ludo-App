@@ -1,3 +1,4 @@
+import 'dart:async';
 import 'dart:math';
 import 'package:flutter/material.dart';
 import 'package:socket_io_client/socket_io_client.dart' as IO;
@@ -39,13 +40,11 @@ class _LudoBoardScreenState extends State<LudoBoardScreen> {
   }
 
   void initSocket() {
-    // Apne Node.js server URL se replace karein jab server deploy ho jaye
     socket = IO.io('http://localhost:3000', <String, dynamic>{
       'transports': ['websocket'],
       'autoConnect': false,
     });
     socket.connect();
-    socket.onConnect((_) => print('Connected to Server'));
   }
 
   void rollDice() {
@@ -85,12 +84,10 @@ class _LudoBoardScreenState extends State<LudoBoardScreen> {
               ),
               child: Stack(
                 children: [
-                  // 4 Corner Quadrants
                   Positioned(top: 0, left: 0, child: _buildHomeBase(Colors.red, size)),
                   Positioned(top: 0, right: 0, child: _buildHomeBase(Colors.green, size)),
                   Positioned(bottom: 0, left: 0, child: _buildHomeBase(Colors.blue, size)),
                   Positioned(bottom: 0, right: 0, child: _buildHomeBase(Colors.yellow, size)),
-                  // Center Home Triangle
                   Center(
                     child: Container(
                       width: size * 0.2,
