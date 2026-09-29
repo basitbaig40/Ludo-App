@@ -61,6 +61,14 @@ class _LudoBoardScreenState extends State<LudoBoardScreen> {
     Point(7, 0), Point(6, 0)
   ];
 
+  // Custom Safe Spots requested by User (Point(row, col))
+  final Set<Point<int>> safeSpots = const {
+    Point(2, 6),   // Top-Left (Near Green)
+    Point(6, 12),  // Top-Right (Near Yellow)
+    Point(12, 8),  // Bottom-Right (Near Blue)
+    Point(8, 2),   // Bottom-Left (Near Red)
+  };
+
   // Home Path (Inner Colored Track leading to Center Home)
   final Map<PlayerColor, List<Point<int>>> homePaths = const {
     PlayerColor.red: [
@@ -162,11 +170,11 @@ class _LudoBoardScreenState extends State<LudoBoardScreen> {
     // Cannot kill inside home path (pos > 50)
     if (newPos > 50) return false;
 
-    // Check if new position is a Safe Star Spot (index 0 of each player)
-    if (newPos == 0) return false;
-
     Point<int>? targetCoord = _getTokenCoordinate(player, newPos);
     if (targetCoord == null) return false;
+
+    // Check if new position is on any of the safe spots
+    if (safeSpots.contains(targetCoord)) return false;
 
     bool killed = false;
 
@@ -456,30 +464,35 @@ class _LudoBoardScreenState extends State<LudoBoardScreen> {
 
   Widget _buildCell(int row, int col) {
     Color cellColor = Colors.white;
-    bool isStar = false;
 
-    // Red Home Track & Start Spot
+    // Home Path Colors
     if (row == 7 && col > 0 && col < 6) cellColor = Colors.red;
-    if (row == 6 && col == 1) { cellColor = Colors.red; isStar = true; }
+    if (row == 6 && col == 1) cellColor = Colors.red;
 
-    // Green Home Track & Start Spot
     if (col == 7 && row > 0 && row < 6) cellColor = Colors.green;
-    if (row == 1 && col == 8) { cellColor = Colors.green; isStar = true; }
+    if (row == 1 && col == 8) cellColor = Colors.green;
 
-    // Yellow Home Track & Start Spot
     if (row == 7 && col > 8 && col < 14) cellColor = Colors.amber[700]!;
-    if (row == 8 && col == 13) { cellColor = Colors.amber[700]!; isStar = true; }
+    if (row == 8 && col == 13) cellColor = Colors.amber[700]!;
 
-    // Blue Home Track & Start Spot
     if (col == 7 && row > 8 && row < 14) cellColor = Colors.blue;
-    if (row == 13 && col == 6) { cellColor = Colors.blue; isStar = true; }
+    if (row == 13 && col == 6) cellColor = Colors.blue;
+
+    // Custom Safe Spot (Star) check
+    bool isSafeSpot = safeSpots.contains(Point(row, col));
 
     return Container(
       decoration: BoxDecoration(
         color: cellColor,
         border: Border.all(color: Colors.grey[300]!, width: 0.5),
       ),
-      child: isStar ? const Icon(Icons.star, color: Colors.white, size: 16) : null,
+      child: isSafeSpot
+          ? Icon(
+              Icons.star,
+              color: cellColor == Colors.white ? Colors.amber[800] : Colors.white,
+              size: 16,
+            )
+          : null,
     );
   }
 }
