@@ -61,7 +61,7 @@ class _LudoBoardScreenState extends State<LudoBoardScreen> {
     Point(7, 0), Point(6, 0)
   ];
 
-  // Custom Safe Spots requested by User (Point(row, col))
+  // Custom Safe Spots (Point(row, col))
   final Set<Point<int>> safeSpots = const {
     Point(2, 6),   // Top-Left (Near Green)
     Point(6, 12),  // Top-Right (Near Yellow)
@@ -165,15 +165,13 @@ class _LudoBoardScreenState extends State<LudoBoardScreen> {
     }
   }
 
-  // Kill Logic (Returns true if an opponent token was sent home)
+  // Kill Logic
   bool _checkAndKill(PlayerColor player, int newPos) {
-    // Cannot kill inside home path (pos > 50)
     if (newPos > 50) return false;
 
     Point<int>? targetCoord = _getTokenCoordinate(player, newPos);
     if (targetCoord == null) return false;
 
-    // Check if new position is on any of the safe spots
     if (safeSpots.contains(targetCoord)) return false;
 
     bool killed = false;
@@ -185,7 +183,6 @@ class _LudoBoardScreenState extends State<LudoBoardScreen> {
           if (oppPos >= 0 && oppPos <= 50) {
             Point<int>? oppCoord = _getTokenCoordinate(oppColor, oppPos);
             if (oppCoord == targetCoord) {
-              // Send opponent goti back home
               oppTokens[i] = -1;
               killed = true;
             }
@@ -230,7 +227,6 @@ class _LudoBoardScreenState extends State<LudoBoardScreen> {
     }
   }
 
-  // Map 0-50 to main track, 51-56 to inner home path
   Point<int>? _getTokenCoordinate(PlayerColor color, int pos) {
     if (pos < 0 || pos > 56) return null;
 
@@ -240,7 +236,6 @@ class _LudoBoardScreenState extends State<LudoBoardScreen> {
     if (color == PlayerColor.yellow) offset = 26;
     if (color == PlayerColor.blue) offset = 39;
 
-    // Inside Home Path
     if (pos > 50) {
       int homeIdx = pos - 51;
       return homePaths[color]![homeIdx];
@@ -316,15 +311,82 @@ class _LudoBoardScreenState extends State<LudoBoardScreen> {
                   Positioned(bottom: 0, left: 0, child: _buildHomeBase(Colors.blue, boardSize, PlayerColor.blue)),
                   Positioned(bottom: 0, right: 0, child: _buildHomeBase(Colors.amber[700]!, boardSize, PlayerColor.yellow)),
 
-                  // Center Triangle Home
+                  // Center Logo (Golden Crown + Crypto Dice + Title)
                   Positioned(
                     top: boardSize * 0.4,
                     left: boardSize * 0.4,
                     child: Container(
                       width: boardSize * 0.2,
                       height: boardSize * 0.2,
-                      color: Colors.amber[800],
-                      child: const Icon(Icons.star, color: Colors.white, size: 36),
+                      decoration: BoxDecoration(
+                        color: const Color(0xFF1E1B4B),
+                        border: Border.all(color: Colors.amber, width: 2),
+                      ),
+                      child: FittedBox(
+                        fit: BoxFit.scaleDown,
+                        child: Padding(
+                          padding: const EdgeInsets.all(4.0),
+                          child: Column(
+                            mainAxisAlignment: MainAxisAlignment.center,
+                            children: [
+                              // Crown Icon
+                              const Icon(
+                                Icons.workspace_premium,
+                                color: Color(0xFFFFD700),
+                                size: 20,
+                              ),
+                              const SizedBox(height: 2),
+
+                              // Crypto Badge
+                              Container(
+                                padding: const EdgeInsets.symmetric(horizontal: 4, vertical: 1),
+                                decoration: BoxDecoration(
+                                  color: Colors.amber[700],
+                                  borderRadius: BorderRadius.circular(4),
+                                ),
+                                child: const Row(
+                                  mainAxisSize: MainAxisSize.min,
+                                  children: [
+                                    Text(
+                                      '₿',
+                                      style: TextStyle(
+                                        color: Colors.white,
+                                        fontSize: 10,
+                                        fontWeight: FontWeight.bold,
+                                      ),
+                                    ),
+                                    SizedBox(width: 2),
+                                    Icon(
+                                      Icons.casino,
+                                      color: Colors.white,
+                                      size: 10,
+                                    ),
+                                  ],
+                                ),
+                              ),
+                              const SizedBox(height: 2),
+
+                              // Title Text
+                              const Text(
+                                'LUDO',
+                                style: TextStyle(
+                                  color: Colors.amber,
+                                  fontSize: 8,
+                                  fontWeight: FontWeight.bold,
+                                ),
+                              ),
+                              const Text(
+                                'BILLIONAIRES',
+                                style: TextStyle(
+                                  color: Colors.white,
+                                  fontSize: 6,
+                                  fontWeight: FontWeight.bold,
+                                ),
+                              ),
+                            ],
+                          ),
+                        ),
+                      ),
                     ),
                   ),
 
@@ -335,7 +397,7 @@ class _LudoBoardScreenState extends State<LudoBoardScreen> {
             ),
           ),
 
-          // Dice
+          // Dice Control
           GestureDetector(
             onTap: rollDice,
             child: Container(
@@ -478,7 +540,7 @@ class _LudoBoardScreenState extends State<LudoBoardScreen> {
     if (col == 7 && row > 8 && row < 14) cellColor = Colors.blue;
     if (row == 13 && col == 6) cellColor = Colors.blue;
 
-    // Custom Safe Spot (Star) check
+    // Safe Spot check
     bool isSafeSpot = safeSpots.contains(Point(row, col));
 
     return Container(
