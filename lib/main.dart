@@ -1,4 +1,4 @@
-import 'dart:async';
+import 'dart0:async';
 import 'dart:math';
 import 'package:flutter/material.dart';
 import 'package:socket_io_client/socket_io_client.dart' as IO;
@@ -37,7 +37,7 @@ class _LudoBoardScreenState extends State<LudoBoardScreen> {
   PlayerColor currentTurn = PlayerColor.red;
   late IO.Socket socket;
 
-  // Token positions (-1 = Inside Home Base, 0 to 51 = Main Path, 52-56 = Home Path)
+  // Token positions (-1 = Inside Home Base, 0 to 51 = Main Path)
   Map<PlayerColor, List<int>> tokenPositions = {
     PlayerColor.red: [-1, -1, -1, -1],
     PlayerColor.green: [-1, -1, -1, -1],
@@ -169,19 +169,15 @@ class _LudoBoardScreenState extends State<LudoBoardScreen> {
     }
   }
 
-  // Exact Starting Point Offsets Fixed:
+  // Exact Starting Point Offsets matched with Board Colors
   Point<int>? _getTokenCoordinate(PlayerColor color, int pos) {
     if (pos < 0 || pos > 51) return null;
     int offset = 0;
 
-    // Red starts at index 0 (6,1)
-    if (color == PlayerColor.red) offset = 0;
-    // Green starts at index 13 (1,8)
-    if (color == PlayerColor.green) offset = 13;
-    // Yellow starts at index 26 (8,13)
-    if (color == PlayerColor.yellow) offset = 26;
-    // Blue starts at index 39 (13,6)
-    if (color == PlayerColor.blue) offset = 39;
+    if (color == PlayerColor.red) offset = 0;      // Starts at Red spot (6,1)
+    if (color == PlayerColor.green) offset = 13;   // Starts at Green spot (1,8)
+    if (color == PlayerColor.yellow) offset = 26;  // Starts at Yellow spot (8,13)
+    if (color == PlayerColor.blue) offset = 39;    // Starts at Blue spot (13,6)
 
     int pathIdx = (pos + offset) % 52;
     return mainPath[pathIdx];
@@ -403,21 +399,21 @@ class _LudoBoardScreenState extends State<LudoBoardScreen> {
   Widget _buildCell(int row, int col) {
     Color cellColor = Colors.white;
 
-    // Green Path & Home Trail
-    if (row == 7 && col > 0 && col < 6) cellColor = Colors.green;
-    if (row == 6 && col == 1) cellColor = Colors.green;
-
-    // Red Path & Home Trail
+    // Red Path & Home Trail (Top-Left Home)
     if (col == 7 && row > 0 && row < 6) cellColor = Colors.red;
-    if (row == 1 && col == 8) cellColor = Colors.red;
+    if (row == 6 && col == 1) cellColor = Colors.red;
 
-    // Yellow Path & Home Trail
-    if (col == 7 && row > 8 && row < 14) cellColor = Colors.yellow;
-    if (row == 13 && col == 6) cellColor = Colors.yellow;
+    // Green Path & Home Trail (Top-Right Home)
+    if (row == 7 && col > 8 && col < 14) cellColor = Colors.green;
+    if (row == 1 && col == 8) cellColor = Colors.green;
 
-    // Blue Path & Home Trail
-    if (row == 7 && col > 8 && col < 14) cellColor = Colors.blue;
-    if (row == 8 && col == 13) cellColor = Colors.blue;
+    // Yellow Path & Home Trail (Bottom-Right Home)
+    if (col == 7 && row > 8 && row < 14) cellColor = Colors.amber[700]!;
+    if (row == 8 && col == 13) cellColor = Colors.amber[700]!;
+
+    // Blue Path & Home Trail (Bottom-Left Home)
+    if (row == 7 && col > 0 && col < 6) cellColor = Colors.blue;
+    if (row == 13 && col == 6) cellColor = Colors.blue;
 
     return Container(
       decoration: BoxDecoration(
