@@ -14,7 +14,7 @@ class LudoApp extends StatelessWidget {
   Widget build(BuildContext context) {
     return MaterialApp(
       debugShowCheckedModeBanner: false,
-      title: 'Ludo Multiplayer',
+      title: 'Ludo Billionaires',
       theme: ThemeData(primarySwatch: Colors.indigo),
       home: const LudoBoardScreen(),
     );
@@ -78,7 +78,14 @@ class _LudoBoardScreenState extends State<LudoBoardScreen> {
     double boardSize = MediaQuery.of(context).size.width - 32;
 
     return Scaffold(
-      appBar: AppBar(title: const Text('Ludo Multiplayer'), centerTitle: true),
+      appBar: AppBar(
+        title: const Text(
+          'Ludo Billionaires',
+          style: TextStyle(fontWeight: FontWeight.bold, letterSpacing: 1.2),
+        ),
+        centerTitle: true,
+        backgroundColor: Colors.indigo,
+      ),
       body: Column(
         mainAxisAlignment: MainAxisAlignment.spaceEvenly,
         children: [
