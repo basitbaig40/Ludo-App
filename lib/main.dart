@@ -169,15 +169,14 @@ class _LudoBoardScreenState extends State<LudoBoardScreen> {
     }
   }
 
-  // Exact Starting Point Offsets matched with Board Colors
   Point<int>? _getTokenCoordinate(PlayerColor color, int pos) {
     if (pos < 0 || pos > 51) return null;
     int offset = 0;
 
-    if (color == PlayerColor.red) offset = 0;      // Red spot (6,1)
-    if (color == PlayerColor.green) offset = 13;   // Green spot (1,8)
-    if (color == PlayerColor.yellow) offset = 26;  // Yellow spot (8,13)
-    if (color == PlayerColor.blue) offset = 39;    // Blue spot (13,6)
+    if (color == PlayerColor.red) offset = 0;      // Starts at Red spot
+    if (color == PlayerColor.green) offset = 13;   // Starts at Green spot
+    if (color == PlayerColor.yellow) offset = 26;  // Starts at Yellow spot
+    if (color == PlayerColor.blue) offset = 39;    // Starts at Blue spot
 
     int pathIdx = (pos + offset) % 52;
     return mainPath[pathIdx];
@@ -247,7 +246,7 @@ class _LudoBoardScreenState extends State<LudoBoardScreen> {
                   Positioned(top: 0, left: 0, child: _buildHomeBase(Colors.red, boardSize, PlayerColor.red)),
                   Positioned(top: 0, right: 0, child: _buildHomeBase(Colors.green, boardSize, PlayerColor.green)),
                   Positioned(bottom: 0, left: 0, child: _buildHomeBase(Colors.blue, boardSize, PlayerColor.blue)),
-                  Positioned(bottom: 0, right: 0, child: _buildHomeBase(Colors.yellow, boardSize, PlayerColor.yellow)),
+                  Positioned(bottom: 0, right: 0, child: _buildHomeBase(Colors.amber[700]!, boardSize, PlayerColor.yellow)),
 
                   // Center Triangle Home
                   Positioned(
@@ -399,20 +398,20 @@ class _LudoBoardScreenState extends State<LudoBoardScreen> {
   Widget _buildCell(int row, int col) {
     Color cellColor = Colors.white;
 
-    // Red Path & Home Trail (Top-Left Home)
-    if (col == 7 && row > 0 && row < 6) cellColor = Colors.red;
+    // Red Home Track & Start Cell (Top-Left Base)
+    if (row == 7 && col > 0 && col < 6) cellColor = Colors.red;
     if (row == 6 && col == 1) cellColor = Colors.red;
 
-    // Green Path & Home Trail (Top-Right Home)
-    if (row == 7 && col > 8 && col < 14) cellColor = Colors.green;
+    // Green Home Track & Start Cell (Top-Right Base)
+    if (col == 7 && row > 0 && row < 6) cellColor = Colors.green;
     if (row == 1 && col == 8) cellColor = Colors.green;
 
-    // Yellow Path & Home Trail (Bottom-Right Home)
-    if (col == 7 && row > 8 && row < 14) cellColor = Colors.amber[700]!;
+    // Yellow Home Track & Start Cell (Bottom-Right Base)
+    if (row == 7 && col > 8 && col < 14) cellColor = Colors.amber[700]!;
     if (row == 8 && col == 13) cellColor = Colors.amber[700]!;
 
-    // Blue Path & Home Trail (Bottom-Left Home)
-    if (row == 7 && col > 0 && col < 6) cellColor = Colors.blue;
+    // Blue Home Track & Start Cell (Bottom-Left Base)
+    if (col == 7 && row > 8 && row < 14) cellColor = Colors.blue;
     if (row == 13 && col == 6) cellColor = Colors.blue;
 
     return Container(
