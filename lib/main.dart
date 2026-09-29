@@ -37,7 +37,7 @@ class _LudoBoardScreenState extends State<LudoBoardScreen> {
   PlayerColor currentTurn = PlayerColor.red;
   late IO.Socket socket;
 
-  // Token positions (-1 = Inside Home Base, 0 to 51 = Main Path)
+  // Token positions (-1 = Inside Home Base, 0 to 50 = Main Path, 51 to 56 = Home Path)
   Map<PlayerColor, List<int>> tokenPositions = {
     PlayerColor.red: [-1, -1, -1, -1],
     PlayerColor.green: [-1, -1, -1, -1],
@@ -45,7 +45,7 @@ class _LudoBoardScreenState extends State<LudoBoardScreen> {
     PlayerColor.blue: [-1, -1, -1, -1],
   };
 
-  // Standard 52 Main Path Coordinates (row, col) on 15x15 Grid
+  // 52 Main Track Path Coordinates (row, col)
   final List<Point<int>> mainPath = const [
     Point(6, 1), Point(6, 2), Point(6, 3), Point(6, 4), Point(6, 5),
     Point(5, 6), Point(4, 6), Point(3, 6), Point(2, 6), Point(1, 6), Point(0, 6),
@@ -60,6 +60,22 @@ class _LudoBoardScreenState extends State<LudoBoardScreen> {
     Point(8, 5), Point(8, 4), Point(8, 3), Point(8, 2), Point(8, 1), Point(8, 0),
     Point(7, 0), Point(6, 0)
   ];
+
+  // Home Path (Inner Colored Track leading to Center Home)
+  final Map<PlayerColor, List<Point<int>>> homePaths = const {
+    PlayerColor.red: [
+      Point(7, 1), Point(7, 2), Point(7, 3), Point(7, 4), Point(7, 5), Point(7, 6)
+    ],
+    PlayerColor.green: [
+      Point(1, 7), Point(2, 7), Point(3, 7), Point(4, 7), Point(5, 7), Point(6, 7)
+    ],
+    PlayerColor.yellow: [
+      Point(7, 13), Point(7, 12), Point(7, 11), Point(7, 10), Point(7, 9), Point(7, 8)
+    ],
+    PlayerColor.blue: [
+      Point(13, 7), Point(12, 7), Point(11, 7), Point(10, 7), Point(9, 7), Point(8, 7)
+    ],
+  };
 
   @override
   void initState() {
@@ -113,7 +129,7 @@ class _LudoBoardScreenState extends State<LudoBoardScreen> {
     List<int> tokens = tokenPositions[currentTurn]!;
     int currentPos = tokens[tokenIndex];
 
-    // Unlock Goti from Base on 6
+    // Unlock Goti on 6
     if (currentPos == -1) {
       if (diceValue == 6) {
         setState(() {
@@ -124,16 +140,53 @@ class _LudoBoardScreenState extends State<LudoBoardScreen> {
       return;
     }
 
-    // Move Forward on Track
+    // Move Forward
     if (currentPos + diceValue <= 56) {
+      int newPos = currentPos + diceValue;
+      bool killedOpponent = _checkAndKill(currentTurn, newPos);
+
       setState(() {
-        tokens[tokenIndex] += diceValue;
+        tokens[tokenIndex] = newPos;
         hasRolled = false;
       });
 
-      if (diceValue == 6) return;
+      // Bonus Turn on 6 or on Killing an Opponent
+      if (diceValue == 6 || killedOpponent) return;
+
       _nextTurn();
     }
+  }
+
+  // Kill Logic (Returns true if an opponent token was sent home)
+  bool _checkAndKill(PlayerColor player, int newPos) {
+    // Cannot kill inside home path (pos > 50)
+    if (newPos > 50) return false;
+
+    // Check if new position is a Safe Star Spot (index 0 of each player)
+    if (newPos == 0) return false;
+
+    Point<int>? targetCoord = _getTokenCoordinate(player, newPos);
+    if (targetCoord == null) return false;
+
+    bool killed = false;
+
+    tokenPositions.forEach((oppColor, oppTokens) {
+      if (oppColor != player) {
+        for (int i = 0; i < oppTokens.length; i++) {
+          int oppPos = oppTokens[i];
+          if (oppPos >= 0 && oppPos <= 50) {
+            Point<int>? oppCoord = _getTokenCoordinate(oppColor, oppPos);
+            if (oppCoord == targetCoord) {
+              // Send opponent goti back home
+              oppTokens[i] = -1;
+              killed = true;
+            }
+          }
+        }
+      }
+    });
+
+    return killed;
   }
 
   void _nextTurn() {
@@ -169,14 +222,21 @@ class _LudoBoardScreenState extends State<LudoBoardScreen> {
     }
   }
 
+  // Map 0-50 to main track, 51-56 to inner home path
   Point<int>? _getTokenCoordinate(PlayerColor color, int pos) {
-    if (pos < 0 || pos > 51) return null;
-    int offset = 0;
+    if (pos < 0 || pos > 56) return null;
 
-    if (color == PlayerColor.red) offset = 0;      // Starts at Red spot
-    if (color == PlayerColor.green) offset = 13;   // Starts at Green spot
-    if (color == PlayerColor.yellow) offset = 26;  // Starts at Yellow spot
-    if (color == PlayerColor.blue) offset = 39;    // Starts at Blue spot
+    int offset = 0;
+    if (color == PlayerColor.red) offset = 0;
+    if (color == PlayerColor.green) offset = 13;
+    if (color == PlayerColor.yellow) offset = 26;
+    if (color == PlayerColor.blue) offset = 39;
+
+    // Inside Home Path
+    if (pos > 50) {
+      int homeIdx = pos - 51;
+      return homePaths[color]![homeIdx];
+    }
 
     int pathIdx = (pos + offset) % 52;
     return mainPath[pathIdx];
@@ -196,7 +256,7 @@ class _LudoBoardScreenState extends State<LudoBoardScreen> {
       body: Column(
         mainAxisAlignment: MainAxisAlignment.spaceEvenly,
         children: [
-          // Current Turn Header
+          // Turn Header
           Container(
             padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 8),
             decoration: BoxDecoration(
@@ -224,7 +284,7 @@ class _LudoBoardScreenState extends State<LudoBoardScreen> {
               ),
               child: Stack(
                 children: [
-                  // Grid Track
+                  // Grid Cells
                   SizedBox(
                     width: boardSize,
                     height: boardSize,
@@ -242,7 +302,7 @@ class _LudoBoardScreenState extends State<LudoBoardScreen> {
                     ),
                   ),
 
-                  // 4 Corner Bases
+                  // 4 Home Bases
                   Positioned(top: 0, left: 0, child: _buildHomeBase(Colors.red, boardSize, PlayerColor.red)),
                   Positioned(top: 0, right: 0, child: _buildHomeBase(Colors.green, boardSize, PlayerColor.green)),
                   Positioned(bottom: 0, left: 0, child: _buildHomeBase(Colors.blue, boardSize, PlayerColor.blue)),
@@ -260,14 +320,14 @@ class _LudoBoardScreenState extends State<LudoBoardScreen> {
                     ),
                   ),
 
-                  // Render Active Pawns on Path
+                  // Active Pawns
                   ..._buildBoardTokens(cellSize),
                 ],
               ),
             ),
           ),
 
-          // Dice Roller Container
+          // Dice
           GestureDetector(
             onTap: rollDice,
             child: Container(
@@ -311,7 +371,6 @@ class _LudoBoardScreenState extends State<LudoBoardScreen> {
     );
   }
 
-  // Draw Tokens when on Path
   List<Widget> _buildBoardTokens(double cellSize) {
     List<Widget> widgets = [];
     tokenPositions.forEach((player, tokens) {
@@ -397,28 +456,30 @@ class _LudoBoardScreenState extends State<LudoBoardScreen> {
 
   Widget _buildCell(int row, int col) {
     Color cellColor = Colors.white;
+    bool isStar = false;
 
-    // Red Home Track & Start Cell (Top-Left Base)
+    // Red Home Track & Start Spot
     if (row == 7 && col > 0 && col < 6) cellColor = Colors.red;
-    if (row == 6 && col == 1) cellColor = Colors.red;
+    if (row == 6 && col == 1) { cellColor = Colors.red; isStar = true; }
 
-    // Green Home Track & Start Cell (Top-Right Base)
+    // Green Home Track & Start Spot
     if (col == 7 && row > 0 && row < 6) cellColor = Colors.green;
-    if (row == 1 && col == 8) cellColor = Colors.green;
+    if (row == 1 && col == 8) { cellColor = Colors.green; isStar = true; }
 
-    // Yellow Home Track & Start Cell (Bottom-Right Base)
+    // Yellow Home Track & Start Spot
     if (row == 7 && col > 8 && col < 14) cellColor = Colors.amber[700]!;
-    if (row == 8 && col == 13) cellColor = Colors.amber[700]!;
+    if (row == 8 && col == 13) { cellColor = Colors.amber[700]!; isStar = true; }
 
-    // Blue Home Track & Start Cell (Bottom-Left Base)
+    // Blue Home Track & Start Spot
     if (col == 7 && row > 8 && row < 14) cellColor = Colors.blue;
-    if (row == 13 && col == 6) cellColor = Colors.blue;
+    if (row == 13 && col == 6) { cellColor = Colors.blue; isStar = true; }
 
     return Container(
       decoration: BoxDecoration(
         color: cellColor,
         border: Border.all(color: Colors.grey[300]!, width: 0.5),
       ),
+      child: isStar ? const Icon(Icons.star, color: Colors.white, size: 16) : null,
     );
   }
 }
