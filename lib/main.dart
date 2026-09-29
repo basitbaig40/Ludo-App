@@ -1,4 +1,4 @@
-import 'dart0:async';
+import 'dart:async';
 import 'dart:math';
 import 'package:flutter/material.dart';
 import 'package:socket_io_client/socket_io_client.dart' as IO;
@@ -174,10 +174,10 @@ class _LudoBoardScreenState extends State<LudoBoardScreen> {
     if (pos < 0 || pos > 51) return null;
     int offset = 0;
 
-    if (color == PlayerColor.red) offset = 0;      // Starts at Red spot (6,1)
-    if (color == PlayerColor.green) offset = 13;   // Starts at Green spot (1,8)
-    if (color == PlayerColor.yellow) offset = 26;  // Starts at Yellow spot (8,13)
-    if (color == PlayerColor.blue) offset = 39;    // Starts at Blue spot (13,6)
+    if (color == PlayerColor.red) offset = 0;      // Red spot (6,1)
+    if (color == PlayerColor.green) offset = 13;   // Green spot (1,8)
+    if (color == PlayerColor.yellow) offset = 26;  // Yellow spot (8,13)
+    if (color == PlayerColor.blue) offset = 39;    // Blue spot (13,6)
 
     int pathIdx = (pos + offset) % 52;
     return mainPath[pathIdx];
