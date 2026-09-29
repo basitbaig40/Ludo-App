@@ -45,7 +45,7 @@ class _LudoBoardScreenState extends State<LudoBoardScreen> {
     PlayerColor.blue: [-1, -1, -1, -1],
   };
 
-  // Full 52 Main Path Coordinates (row, col) on 15x15 Grid
+  // Standard 52 Main Path Coordinates (row, col) on 15x15 Grid
   final List<Point<int>> mainPath = const [
     Point(6, 1), Point(6, 2), Point(6, 3), Point(6, 4), Point(6, 5),
     Point(5, 6), Point(4, 6), Point(3, 6), Point(2, 6), Point(1, 6), Point(0, 6),
@@ -169,14 +169,19 @@ class _LudoBoardScreenState extends State<LudoBoardScreen> {
     }
   }
 
-  // Calculate Screen Offset for Tokens on Main Board Track
+  // Exact Starting Point Offsets Fixed:
   Point<int>? _getTokenCoordinate(PlayerColor color, int pos) {
     if (pos < 0 || pos > 51) return null;
     int offset = 0;
-    if (color == PlayerColor.red) offset = 13;
-    if (color == PlayerColor.green) offset = 26;
-    if (color == PlayerColor.yellow) offset = 39;
-    if (color == PlayerColor.blue) offset = 0;
+
+    // Red starts at index 0 (6,1)
+    if (color == PlayerColor.red) offset = 0;
+    // Green starts at index 13 (1,8)
+    if (color == PlayerColor.green) offset = 13;
+    // Yellow starts at index 26 (8,13)
+    if (color == PlayerColor.yellow) offset = 26;
+    // Blue starts at index 39 (13,6)
+    if (color == PlayerColor.blue) offset = 39;
 
     int pathIdx = (pos + offset) % 52;
     return mainPath[pathIdx];
