@@ -37,13 +37,29 @@ class _LudoBoardScreenState extends State<LudoBoardScreen> {
   PlayerColor currentTurn = PlayerColor.red;
   late IO.Socket socket;
 
-  // Token positions (-1 = Home Base, 0 to 50 = Main Track, 51-56 = Home Path)
+  // Token positions (-1 = Inside Home Base, 0 to 51 = Main Path, 52-56 = Home Path)
   Map<PlayerColor, List<int>> tokenPositions = {
     PlayerColor.red: [-1, -1, -1, -1],
     PlayerColor.green: [-1, -1, -1, -1],
     PlayerColor.yellow: [-1, -1, -1, -1],
     PlayerColor.blue: [-1, -1, -1, -1],
   };
+
+  // Full 52 Main Path Coordinates (row, col) on 15x15 Grid
+  final List<Point<int>> mainPath = const [
+    Point(6, 1), Point(6, 2), Point(6, 3), Point(6, 4), Point(6, 5),
+    Point(5, 6), Point(4, 6), Point(3, 6), Point(2, 6), Point(1, 6), Point(0, 6),
+    Point(0, 7), Point(0, 8),
+    Point(1, 8), Point(2, 8), Point(3, 8), Point(4, 8), Point(5, 8),
+    Point(6, 9), Point(6, 10), Point(6, 11), Point(6, 12), Point(6, 13), Point(6, 14),
+    Point(7, 14), Point(8, 14),
+    Point(8, 13), Point(8, 12), Point(8, 11), Point(8, 10), Point(8, 9),
+    Point(9, 8), Point(10, 8), Point(11, 8), Point(12, 8), Point(13, 8), Point(14, 8),
+    Point(14, 7), Point(14, 6),
+    Point(13, 6), Point(12, 6), Point(11, 6), Point(10, 6), Point(9, 6),
+    Point(8, 5), Point(8, 4), Point(8, 3), Point(8, 2), Point(8, 1), Point(8, 0),
+    Point(7, 0), Point(6, 0)
+  ];
 
   @override
   void initState() {
@@ -76,7 +92,6 @@ class _LudoBoardScreenState extends State<LudoBoardScreen> {
           hasRolled = true;
         });
 
-        // Check if player has any playable moves
         if (!_canPlayerMove()) {
           Future.delayed(const Duration(milliseconds: 1000), () {
             _nextTurn();
@@ -98,7 +113,7 @@ class _LudoBoardScreenState extends State<LudoBoardScreen> {
     List<int> tokens = tokenPositions[currentTurn]!;
     int currentPos = tokens[tokenIndex];
 
-    // Token inside Home Base (Requires 6 to unlock)
+    // Unlock Goti from Base on 6
     if (currentPos == -1) {
       if (diceValue == 6) {
         setState(() {
@@ -109,18 +124,14 @@ class _LudoBoardScreenState extends State<LudoBoardScreen> {
       return;
     }
 
-    // Token on Track
+    // Move Forward on Track
     if (currentPos + diceValue <= 56) {
       setState(() {
         tokens[tokenIndex] += diceValue;
         hasRolled = false;
       });
 
-      // Bonus Turn on rolling 6
-      if (diceValue == 6) {
-        return;
-      }
-
+      if (diceValue == 6) return;
       _nextTurn();
     }
   }
@@ -158,9 +169,23 @@ class _LudoBoardScreenState extends State<LudoBoardScreen> {
     }
   }
 
+  // Calculate Screen Offset for Tokens on Main Board Track
+  Point<int>? _getTokenCoordinate(PlayerColor color, int pos) {
+    if (pos < 0 || pos > 51) return null;
+    int offset = 0;
+    if (color == PlayerColor.red) offset = 13;
+    if (color == PlayerColor.green) offset = 26;
+    if (color == PlayerColor.yellow) offset = 39;
+    if (color == PlayerColor.blue) offset = 0;
+
+    int pathIdx = (pos + offset) % 52;
+    return mainPath[pathIdx];
+  }
+
   @override
   Widget build(BuildContext context) {
     double boardSize = MediaQuery.of(context).size.width - 24;
+    double cellSize = boardSize / 15;
 
     return Scaffold(
       appBar: AppBar(
@@ -171,11 +196,11 @@ class _LudoBoardScreenState extends State<LudoBoardScreen> {
       body: Column(
         mainAxisAlignment: MainAxisAlignment.spaceEvenly,
         children: [
-          // Current Turn Display
+          // Current Turn Header
           Container(
-            padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
+            padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 8),
             decoration: BoxDecoration(
-              color: _getPlayerColorHex(currentTurn).withOpacity(0.2),
+              color: _getPlayerColorHex(currentTurn).withOpacity(0.15),
               borderRadius: BorderRadius.circular(20),
               border: Border.all(color: _getPlayerColorHex(currentTurn), width: 2),
             ),
@@ -217,7 +242,7 @@ class _LudoBoardScreenState extends State<LudoBoardScreen> {
                     ),
                   ),
 
-                  // Bases
+                  // 4 Corner Bases
                   Positioned(top: 0, left: 0, child: _buildHomeBase(Colors.red, boardSize, PlayerColor.red)),
                   Positioned(top: 0, right: 0, child: _buildHomeBase(Colors.green, boardSize, PlayerColor.green)),
                   Positioned(bottom: 0, left: 0, child: _buildHomeBase(Colors.blue, boardSize, PlayerColor.blue)),
@@ -234,12 +259,15 @@ class _LudoBoardScreenState extends State<LudoBoardScreen> {
                       child: const Icon(Icons.star, color: Colors.white, size: 36),
                     ),
                   ),
+
+                  // Render Active Pawns on Path
+                  ..._buildBoardTokens(cellSize),
                 ],
               ),
             ),
           ),
 
-          // Dice Roller Controls
+          // Dice Roller Container
           GestureDetector(
             onTap: rollDice,
             child: Container(
@@ -252,7 +280,7 @@ class _LudoBoardScreenState extends State<LudoBoardScreen> {
               child: Column(
                 children: [
                   Text(
-                    isRolling ? 'Rolling...' : (hasRolled ? 'Select Pawn' : 'Tap to Roll'),
+                    isRolling ? 'Rolling...' : (hasRolled ? 'Tap Pawn to Move' : 'Tap to Roll'),
                     style: const TextStyle(color: Colors.white, fontSize: 16, fontWeight: FontWeight.bold),
                   ),
                   const SizedBox(height: 6),
@@ -281,6 +309,44 @@ class _LudoBoardScreenState extends State<LudoBoardScreen> {
         ],
       ),
     );
+  }
+
+  // Draw Tokens when on Path
+  List<Widget> _buildBoardTokens(double cellSize) {
+    List<Widget> widgets = [];
+    tokenPositions.forEach((player, tokens) {
+      for (int i = 0; i < tokens.length; i++) {
+        int pos = tokens[i];
+        Point<int>? point = _getTokenCoordinate(player, pos);
+        if (point != null) {
+          widgets.add(
+            Positioned(
+              left: point.y * cellSize + 2,
+              top: point.x * cellSize + 2,
+              child: GestureDetector(
+                onTap: () {
+                  if (currentTurn == player) moveToken(i);
+                },
+                child: Container(
+                  width: cellSize - 4,
+                  height: cellSize - 4,
+                  decoration: BoxDecoration(
+                    color: _getPlayerColorHex(player),
+                    shape: BoxShape.circle,
+                    border: Border.all(color: Colors.white, width: 2),
+                    boxShadow: const [BoxShadow(color: Colors.black38, blurRadius: 3)],
+                  ),
+                  child: const Center(
+                    child: Icon(Icons.stars, color: Colors.white, size: 14),
+                  ),
+                ),
+              ),
+            ),
+          );
+        }
+      }
+    });
+    return widgets;
   }
 
   Widget _buildHomeBase(Color color, double boardSize, PlayerColor playerKey) {
@@ -313,10 +379,11 @@ class _LudoBoardScreenState extends State<LudoBoardScreen> {
                     color: inBase ? color : Colors.grey[300],
                     shape: BoxShape.circle,
                     border: Border.all(color: Colors.black, width: 2),
+                    boxShadow: inBase ? [const BoxShadow(color: Colors.black26, blurRadius: 2)] : [],
                   ),
                   child: Icon(
-                    Icons.person,
-                    color: inBase ? Colors.white : Colors.grey[600],
+                    Icons.directions_walk,
+                    color: inBase ? Colors.white : Colors.grey[500],
                     size: 20,
                   ),
                 ),
