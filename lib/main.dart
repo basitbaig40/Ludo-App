@@ -28,17 +28,21 @@ class LudoBoardScreen extends StatefulWidget {
   State<LudoBoardScreen> createState() => _LudoBoardScreenState();
 }
 
+enum PlayerColor { red, green, yellow, blue }
+
 class _LudoBoardScreenState extends State<LudoBoardScreen> {
   int diceValue = 1;
   bool isRolling = false;
+  bool hasRolled = false;
+  PlayerColor currentTurn = PlayerColor.red;
   late IO.Socket socket;
 
-  // Track token positions (0 means home base)
-  Map<String, List<int>> tokenPositions = {
-    'red': [0, 0, 0, 0],
-    'green': [0, 0, 0, 0],
-    'yellow': [0, 0, 0, 0],
-    'blue': [0, 0, 0, 0],
+  // Token positions (-1 = Home Base, 0 to 50 = Main Track, 51-56 = Home Path)
+  Map<PlayerColor, List<int>> tokenPositions = {
+    PlayerColor.red: [-1, -1, -1, -1],
+    PlayerColor.green: [-1, -1, -1, -1],
+    PlayerColor.yellow: [-1, -1, -1, -1],
+    PlayerColor.blue: [-1, -1, -1, -1],
   };
 
   @override
@@ -56,40 +60,136 @@ class _LudoBoardScreenState extends State<LudoBoardScreen> {
   }
 
   void rollDice() {
-    if (isRolling) return;
+    if (isRolling || hasRolled) return;
     setState(() => isRolling = true);
 
     int rolls = 0;
-    Timer.periodic(const Duration(milliseconds: 100), (timer) {
+    Timer.periodic(const Duration(milliseconds: 90), (timer) {
       setState(() {
         diceValue = Random().nextInt(6) + 1;
       });
       rolls++;
-      if (rolls >= 10) {
+      if (rolls >= 8) {
         timer.cancel();
-        setState(() => isRolling = false);
-        socket.emit('diceRolled', {'value': diceValue});
+        setState(() {
+          isRolling = false;
+          hasRolled = true;
+        });
+
+        // Check if player has any playable moves
+        if (!_canPlayerMove()) {
+          Future.delayed(const Duration(milliseconds: 1000), () {
+            _nextTurn();
+          });
+        }
       }
     });
   }
 
+  bool _canPlayerMove() {
+    List<int> currentTokens = tokenPositions[currentTurn]!;
+    if (diceValue == 6) return true;
+    return currentTokens.any((pos) => pos >= 0 && pos + diceValue <= 56);
+  }
+
+  void moveToken(int tokenIndex) {
+    if (!hasRolled || isRolling) return;
+
+    List<int> tokens = tokenPositions[currentTurn]!;
+    int currentPos = tokens[tokenIndex];
+
+    // Token inside Home Base (Requires 6 to unlock)
+    if (currentPos == -1) {
+      if (diceValue == 6) {
+        setState(() {
+          tokens[tokenIndex] = 0;
+          hasRolled = false;
+        });
+      }
+      return;
+    }
+
+    // Token on Track
+    if (currentPos + diceValue <= 56) {
+      setState(() {
+        tokens[tokenIndex] += diceValue;
+        hasRolled = false;
+      });
+
+      // Bonus Turn on rolling 6
+      if (diceValue == 6) {
+        return;
+      }
+
+      _nextTurn();
+    }
+  }
+
+  void _nextTurn() {
+    setState(() {
+      hasRolled = false;
+      switch (currentTurn) {
+        case PlayerColor.red:
+          currentTurn = PlayerColor.green;
+          break;
+        case PlayerColor.green:
+          currentTurn = PlayerColor.yellow;
+          break;
+        case PlayerColor.yellow:
+          currentTurn = PlayerColor.blue;
+          break;
+        case PlayerColor.blue:
+          currentTurn = PlayerColor.red;
+          break;
+      }
+    });
+  }
+
+  Color _getPlayerColorHex(PlayerColor color) {
+    switch (color) {
+      case PlayerColor.red:
+        return Colors.red;
+      case PlayerColor.green:
+        return Colors.green;
+      case PlayerColor.yellow:
+        return Colors.amber[700]!;
+      case PlayerColor.blue:
+        return Colors.blue;
+    }
+  }
+
   @override
   Widget build(BuildContext context) {
-    double boardSize = MediaQuery.of(context).size.width - 32;
+    double boardSize = MediaQuery.of(context).size.width - 24;
 
     return Scaffold(
       appBar: AppBar(
-        title: const Text(
-          'Ludo Billionaires',
-          style: TextStyle(fontWeight: FontWeight.bold, letterSpacing: 1.2),
-        ),
+        title: const Text('Ludo Billionaires', style: TextStyle(fontWeight: FontWeight.bold)),
         centerTitle: true,
         backgroundColor: Colors.indigo,
       ),
       body: Column(
         mainAxisAlignment: MainAxisAlignment.spaceEvenly,
         children: [
-          // Complete Ludo Board with Grid and Home Boxes
+          // Current Turn Display
+          Container(
+            padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
+            decoration: BoxDecoration(
+              color: _getPlayerColorHex(currentTurn).withOpacity(0.2),
+              borderRadius: BorderRadius.circular(20),
+              border: Border.all(color: _getPlayerColorHex(currentTurn), width: 2),
+            ),
+            child: Text(
+              'Turn: ${currentTurn.name.toUpperCase()}',
+              style: TextStyle(
+                fontSize: 18,
+                fontWeight: FontWeight.bold,
+                color: _getPlayerColorHex(currentTurn),
+              ),
+            ),
+          ),
+
+          // Ludo Board
           Center(
             child: Container(
               width: boardSize,
@@ -99,7 +199,7 @@ class _LudoBoardScreenState extends State<LudoBoardScreen> {
               ),
               child: Stack(
                 children: [
-                  // 15x15 Full Board Grid Path
+                  // Grid Track
                   SizedBox(
                     width: boardSize,
                     height: boardSize,
@@ -117,13 +217,13 @@ class _LudoBoardScreenState extends State<LudoBoardScreen> {
                     ),
                   ),
 
-                  // 4 Corner Home Bases Overlay
-                  Positioned(top: 0, left: 0, child: _buildHomeBase(Colors.red, boardSize, 'red')),
-                  Positioned(top: 0, right: 0, child: _buildHomeBase(Colors.green, boardSize, 'green')),
-                  Positioned(bottom: 0, left: 0, child: _buildHomeBase(Colors.blue, boardSize, 'blue')),
-                  Positioned(bottom: 0, right: 0, child: _buildHomeBase(Colors.yellow, boardSize, 'yellow')),
+                  // Bases
+                  Positioned(top: 0, left: 0, child: _buildHomeBase(Colors.red, boardSize, PlayerColor.red)),
+                  Positioned(top: 0, right: 0, child: _buildHomeBase(Colors.green, boardSize, PlayerColor.green)),
+                  Positioned(bottom: 0, left: 0, child: _buildHomeBase(Colors.blue, boardSize, PlayerColor.blue)),
+                  Positioned(bottom: 0, right: 0, child: _buildHomeBase(Colors.yellow, boardSize, PlayerColor.yellow)),
 
-                  // Center Triangle
+                  // Center Triangle Home
                   Positioned(
                     top: boardSize * 0.4,
                     left: boardSize * 0.4,
@@ -139,20 +239,21 @@ class _LudoBoardScreenState extends State<LudoBoardScreen> {
             ),
           ),
 
-          // Dice Roller Section
+          // Dice Roller Controls
           GestureDetector(
             onTap: rollDice,
             child: Container(
               padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 12),
               decoration: BoxDecoration(
-                color: Colors.indigo,
-                borderRadius: BorderRadius.circular(12),
+                color: _getPlayerColorHex(currentTurn),
+                borderRadius: BorderRadius.circular(16),
+                boxShadow: const [BoxShadow(color: Colors.black26, blurRadius: 6)],
               ),
               child: Column(
                 children: [
                   Text(
-                    isRolling ? 'Rolling...' : 'Tap to Roll',
-                    style: const TextStyle(color: Colors.white, fontSize: 16),
+                    isRolling ? 'Rolling...' : (hasRolled ? 'Select Pawn' : 'Tap to Roll'),
+                    style: const TextStyle(color: Colors.white, fontSize: 16, fontWeight: FontWeight.bold),
                   ),
                   const SizedBox(height: 6),
                   Container(
@@ -160,15 +261,15 @@ class _LudoBoardScreenState extends State<LudoBoardScreen> {
                     height: 55,
                     decoration: BoxDecoration(
                       color: Colors.white,
-                      borderRadius: BorderRadius.circular(8),
+                      borderRadius: BorderRadius.circular(10),
                     ),
                     child: Center(
                       child: Text(
                         '$diceValue',
-                        style: const TextStyle(
-                          fontSize: 30,
+                        style: TextStyle(
+                          fontSize: 32,
                           fontWeight: FontWeight.bold,
-                          color: Colors.indigo,
+                          color: _getPlayerColorHex(currentTurn),
                         ),
                       ),
                     ),
@@ -182,9 +283,10 @@ class _LudoBoardScreenState extends State<LudoBoardScreen> {
     );
   }
 
-  // Colored Home Base with 4 Pawns
-  Widget _buildHomeBase(Color color, double boardSize, String colorKey) {
+  Widget _buildHomeBase(Color color, double boardSize, PlayerColor playerKey) {
     double baseSize = boardSize * 0.4;
+    List<int> tokens = tokenPositions[playerKey]!;
+
     return Container(
       width: baseSize,
       height: baseSize,
@@ -197,45 +299,58 @@ class _LudoBoardScreenState extends State<LudoBoardScreen> {
           padding: const EdgeInsets.all(8),
           children: List.generate(
             4,
-            (index) => Container(
-              margin: const EdgeInsets.all(4),
-              decoration: BoxDecoration(
-                color: color,
-                shape: BoxShape.circle,
-                border: Border.all(color: Colors.black, width: 2),
-              ),
-              child: const Icon(Icons.person, color: Colors.white, size: 18),
-            ),
+            (index) {
+              bool inBase = tokens[index] == -1;
+              return GestureDetector(
+                onTap: () {
+                  if (currentTurn == playerKey && inBase) {
+                    moveToken(index);
+                  }
+                },
+                child: Container(
+                  margin: const EdgeInsets.all(4),
+                  decoration: BoxDecoration(
+                    color: inBase ? color : Colors.grey[300],
+                    shape: BoxShape.circle,
+                    border: Border.all(color: Colors.black, width: 2),
+                  ),
+                  child: Icon(
+                    Icons.person,
+                    color: inBase ? Colors.white : Colors.grey[600],
+                    size: 20,
+                  ),
+                ),
+              );
+            },
           ),
         ),
       ),
     );
   }
 
-  // Path Grid Cells and Colored Tracks
   Widget _buildCell(int row, int col) {
     Color cellColor = Colors.white;
 
-    // Green Path
+    // Green Path & Home Trail
     if (row == 7 && col > 0 && col < 6) cellColor = Colors.green;
     if (row == 6 && col == 1) cellColor = Colors.green;
 
-    // Red Path
+    // Red Path & Home Trail
     if (col == 7 && row > 0 && row < 6) cellColor = Colors.red;
     if (row == 1 && col == 8) cellColor = Colors.red;
 
-    // Yellow Path
+    // Yellow Path & Home Trail
     if (col == 7 && row > 8 && row < 14) cellColor = Colors.yellow;
     if (row == 13 && col == 6) cellColor = Colors.yellow;
 
-    // Blue Path
+    // Blue Path & Home Trail
     if (row == 7 && col > 8 && col < 14) cellColor = Colors.blue;
     if (row == 8 && col == 13) cellColor = Colors.blue;
 
     return Container(
       decoration: BoxDecoration(
         color: cellColor,
-        border: Border.all(color: Colors.grey[400]!, width: 0.5),
+        border: Border.all(color: Colors.grey[300]!, width: 0.5),
       ),
     );
   }
