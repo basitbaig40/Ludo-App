@@ -61,6 +61,14 @@ class _LudoBoardScreenState extends State<LudoBoardScreen> {
     Point(7, 0), Point(6, 0)
   ];
 
+  // 4 Extra Safe Star Spots (Point(row, col))
+  final Set<Point<int>> safeSpots = const {
+    Point(8, 2),   // Red Side Extra Safe Spot
+    Point(2, 6),   // Green Side Extra Safe Spot
+    Point(6, 12),  // Yellow Side Extra Safe Spot
+    Point(12, 8),  // Blue Side Extra Safe Spot
+  };
+
   // Home Path (Inner Colored Track leading to Center Home)
   final Map<PlayerColor, List<Point<int>>> homePaths = const {
     PlayerColor.red: [
@@ -157,16 +165,19 @@ class _LudoBoardScreenState extends State<LudoBoardScreen> {
     }
   }
 
-  // Kill Logic (Returns true if an opponent token was sent home)
+  // Kill Logic (Safe spots protection included)
   bool _checkAndKill(PlayerColor player, int newPos) {
-    // Cannot kill inside home path (pos > 50)
+    // 1. Cannot kill inside home path (pos > 50)
     if (newPos > 50) return false;
 
-    // Check if new position is a Safe Star Spot (index 0 of each player)
+    // 2. Cannot kill on standard starting safe spot (index 0)
     if (newPos == 0) return false;
 
     Point<int>? targetCoord = _getTokenCoordinate(player, newPos);
     if (targetCoord == null) return false;
+
+    // 3. Cannot kill on any of the 4 extra star safe spots
+    if (safeSpots.contains(targetCoord)) return false;
 
     bool killed = false;
 
@@ -474,12 +485,23 @@ class _LudoBoardScreenState extends State<LudoBoardScreen> {
     if (col == 7 && row > 8 && row < 14) cellColor = Colors.blue;
     if (row == 13 && col == 6) { cellColor = Colors.blue; isStar = true; }
 
+    // 4 Extra Safe Spots Check
+    if (safeSpots.contains(Point(row, col))) {
+      isStar = true;
+    }
+
     return Container(
       decoration: BoxDecoration(
         color: cellColor,
         border: Border.all(color: Colors.grey[300]!, width: 0.5),
       ),
-      child: isStar ? const Icon(Icons.star, color: Colors.white, size: 16) : null,
+      child: isStar
+          ? Icon(
+              Icons.star,
+              color: cellColor == Colors.white ? Colors.amber[800] : Colors.white,
+              size: 16,
+            )
+          : null,
     );
   }
 }
