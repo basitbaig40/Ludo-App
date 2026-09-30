@@ -19,3 +19,8 @@ dev_dependencies:
 
 flutter:
   uses-material-design: true
+  dependencies:
+  flutter:
+    sdk: flutter
+  socket_io_client: ^2.0.3+1
+
